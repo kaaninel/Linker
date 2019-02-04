@@ -1,0 +1,36 @@
+{
+  "name": "@empatilab/linker",
+  "version": "0.0.2c",
+  "description": "Typescript Compiler for Link Library",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "compile": "tsc"
+  },
+  "bin": {
+    "linker": "./index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/EmpatiLab/Linker.git"
+  },
+  "keywords": [
+    "Link",
+    "UI",
+    "Typescript"
+  ],
+  "author": "Necati Kaan İnel <kaaninel@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/EmpatiLab/Linker/issues"
+  },
+  "homepage": "https://github.com/EmpatiLab/Linker#readme",
+  "dependencies": {
+    "@types/node": "^10.12.21",
+    "postcss": "^7.0.14",
+    "postcss-csso": "^3.0.0",
+    "postcss-nested": "^4.1.1",
+    "typescript": "^3.2.4"
+  },
+  "devDependencies": {}
+}

@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "es2018",  
+    "module": "commonjs",
+    "outDir": "Dist",    
+    "esModuleInterop": true,
+    "baseUrl": "Source",
+    "rootDir": "Source"
+  },
+  "exclude": [
+    "node_modules", "Proto", "Dist"
+  ]
+}

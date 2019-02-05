@@ -1,5 +1,5 @@
 import * as ts from "typescript";
-import PostCSS from "../PostCSS";
+import PostCSS from "../CSSCompiler";
 
 type SClass = ts.ClassDeclaration & { Tag?: string };
 

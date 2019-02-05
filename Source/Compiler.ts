@@ -1,6 +1,6 @@
 import * as ts from "typescript";
 import Transformers from "./Transformers/Index";
-import PostCSS from "./PostCSS";
+import PostCSS from "./CSSCompiler";
 import { writeFileSync } from "fs";
 import { join } from "path";
 

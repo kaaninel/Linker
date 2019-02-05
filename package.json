@@ -1,11 +1,11 @@
 {
   "name": "@empatilab/linker",
-  "version": "0.0.2c",
+  "version": "0.0.3",
   "description": "Typescript Compiler for Link Library",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "compile": "tsc"
+    "preinstall": "tsc"
   },
   "bin": {
     "linker": "./index.js"

@@ -2,14 +2,13 @@ import * as ts from "typescript";
 
 type ModuleIEDec = (ts.ImportDeclaration | ts.ExportDeclaration) & { Org?: ts.StringLiteral };
 
-function ImportVisitor<T extends ts.Node>(Fn: (node: ModuleIEDec) => void | ts.Node): ts.TransformerFactory<T> {
+function ImportVisitor<T extends ts.Node>(Fn: (node: ModuleIEDec) => ts.Node): ts.TransformerFactory<T> {
   return (context) => {
     const visit: ts.Visitor = (node) => {
       if(ts.isSourceFile(node))
         return ts.visitEachChild(node, (child) => visit(child), context);
       if(ts.isImportDeclaration(node) || ts.isExportDeclaration(node)){
-        const R = Fn(node);
-        if(R) return R;
+        return Fn(node);
       } 
       return ts.visitEachChild(node, (child) => visit(child), context);
     }
@@ -70,6 +69,7 @@ export default {
           return ts.updateExportDeclaration(Node, Node.decorators, Node.modifiers, Node.exportClause, ts.createStringLiteral(m));
         }
       }
+      return Node;
     })
   ]
 }

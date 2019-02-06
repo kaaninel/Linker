@@ -7,7 +7,7 @@
       "es2018",
       "esnext.asynciterable"
     ],
-    "declarationDir": "./Declatations",
+    "declarationDir": "./Declarations",
     "outDir": "./www/Lib",
     "rootDir": "./Source",
     "composite": true,

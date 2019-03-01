@@ -1,5 +1,6 @@
 import PostCSS from "postcss";
 import Nested from "postcss-nested";
+import Extend from "postcss-extend";
 import Clean from "postcss-csso";
 import {
   Node,
@@ -9,22 +10,18 @@ import {
 } from "typescript";
 
 export default class CSS {
-  static Processor = PostCSS([Nested, Clean]);
+  static Processor = PostCSS([Extend, Nested, Clean]);
   static Styles = {};
   static IsPostCSS(Node: Node) {
     return isTaggedTemplateExpression(Node) && Node.tag.getText() === "css";
   }
 
-  static Process(Node: TaggedTemplateExpression, Parent?: string) {
+  static AddBlock(Node: TaggedTemplateExpression, Parent?: string) {
     try {
       if (isNoSubstitutionTemplateLiteral(Node.template)) {
         const Text = Node.template.text;
-        this.Styles[Parent || Node.pos] = this.Processor.process(
-          Parent ? `${Parent} { ${Text} }` : Text,
-          {
-            from: undefined
-          }
-        );
+        this.Styles[Parent || Node.pos] =
+          Parent ? `${Parent} { ${Text} }` : Text;
         return [];
       }
     } catch (Ex) {

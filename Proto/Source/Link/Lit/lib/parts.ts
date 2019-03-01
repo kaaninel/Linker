@@ -12,21 +12,35 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
+/**
+ * @module lit-html
+ */
+
 import {isDirective} from './directive.js';
 import {removeNodes} from './dom.js';
-import {noChange, Part} from './part.js';
+import {noChange, nothing, Part} from './part.js';
 import {RenderOptions} from './render-options.js';
 import {TemplateInstance} from './template-instance.js';
 import {TemplateResult} from './template-result.js';
 import {createMarker} from './template.js';
 
-export const isPrimitive = (value: any) =>
-    (value === null ||
-     !(typeof value === 'object' || typeof value === 'function'));
+// https://tc39.github.io/ecma262/#sec-typeof-operator
+export type Primitive = null|undefined|boolean|number|string|Symbol|bigint;
+export const isPrimitive = (value: unknown): value is Primitive => {
+  return (
+      value === null ||
+      !(typeof value === 'object' || typeof value === 'function'));
+};
+export const isIterable = (value: unknown): value is Iterable<unknown> => {
+  return Array.isArray(value) ||
+      // tslint:disable-next-line:no-any
+      !!(value && (value as any)[Symbol.iterator]);
+};
 
 /**
- * Sets attribute values for AttributeParts, so that the value is only set once
- * even if there are multiple parts for an attribute.
+ * Writes attribute values to the DOM for a group of AttributeParts bound to a
+ * single attibute. The value is only set once even if there are multiple parts
+ * for an attribute.
  */
 export class AttributeCommitter {
   element: Element;
@@ -52,7 +66,7 @@ export class AttributeCommitter {
     return new AttributePart(this);
   }
 
-  protected _getValue(): any {
+  protected _getValue(): unknown {
     const strings = this.strings;
     const l = strings.length - 1;
     let text = '';
@@ -62,13 +76,12 @@ export class AttributeCommitter {
       const part = this.parts[i];
       if (part !== undefined) {
         const v = part.value;
-        if (v != null &&
-            (Array.isArray(v) || typeof v !== 'string' && v[Symbol.iterator])) {
+        if (isPrimitive(v) || !isIterable(v)) {
+          text += typeof v === 'string' ? v : String(v);
+        } else {
           for (const t of v) {
             text += typeof t === 'string' ? t : String(t);
           }
-        } else {
-          text += typeof v === 'string' ? v : String(v);
         }
       }
     }
@@ -80,20 +93,23 @@ export class AttributeCommitter {
   commit(): void {
     if (this.dirty) {
       this.dirty = false;
-      this.element.setAttribute(this.name, this._getValue());
+      this.element.setAttribute(this.name, this._getValue() as string);
     }
   }
 }
 
+/**
+ * A Part that controls all or part of an attribute value.
+ */
 export class AttributePart implements Part {
   committer: AttributeCommitter;
-  value: any = undefined;
+  value: unknown = undefined;
 
   constructor(comitter: AttributeCommitter) {
     this.committer = comitter;
   }
 
-  setValue(value: any): void {
+  setValue(value: unknown): void {
     if (value !== noChange && (!isPrimitive(value) || value !== this.value)) {
       this.value = value;
       // If the value is a not a directive, dirty the committer so that it'll
@@ -118,19 +134,27 @@ export class AttributePart implements Part {
   }
 }
 
+/**
+ * A Part that controls a location within a Node tree. Like a Range, NodePart
+ * has start and end locations and can set and update the Nodes between those
+ * locations.
+ *
+ * NodeParts support several value types: primitives, Nodes, TemplateResults,
+ * as well as arrays and iterables of those types.
+ */
 export class NodePart implements Part {
   options: RenderOptions;
   startNode!: Node;
   endNode!: Node;
-  value: any = undefined;
-  _pendingValue: any = undefined;
+  value: unknown = undefined;
+  _pendingValue: unknown = undefined;
 
   constructor(options: RenderOptions) {
     this.options = options;
   }
 
   /**
-   * Inserts this part into a container.
+   * Appends this part into a container.
    *
    * This part must be empty, as its contents are not automatically moved.
    */
@@ -140,9 +164,9 @@ export class NodePart implements Part {
   }
 
   /**
-   * Inserts this part between `ref` and `ref`'s next sibling. Both `ref` and
-   * its next sibling must be static, unchanging nodes such as those that appear
-   * in a literal section of a template.
+   * Inserts this part after the `ref` node (between `ref` and `ref`'s next
+   * sibling). Both `ref` and its next sibling must be static, unchanging nodes
+   * such as those that appear in a literal section of a template.
    *
    * This part must be empty, as its contents are not automatically moved.
    */
@@ -162,7 +186,7 @@ export class NodePart implements Part {
   }
 
   /**
-   * Appends this part after `ref`
+   * Inserts this part after the `ref` part.
    *
    * This part must be empty, as its contents are not automatically moved.
    */
@@ -172,7 +196,7 @@ export class NodePart implements Part {
     ref.endNode = this.startNode;
   }
 
-  setValue(value: any): void {
+  setValue(value: unknown): void {
     this._pendingValue = value;
   }
 
@@ -194,8 +218,11 @@ export class NodePart implements Part {
       this._commitTemplateResult(value);
     } else if (value instanceof Node) {
       this._commitNode(value);
-    } else if (Array.isArray(value) || value[Symbol.iterator]) {
+    } else if (isIterable(value)) {
       this._commitIterable(value);
+    } else if (value === nothing) {
+      this.value = nothing;
+      this.clear();
     } else {
       // Fallback, will render the string representation
       this._commitText(value);
@@ -215,15 +242,15 @@ export class NodePart implements Part {
     this.value = value;
   }
 
-  private _commitText(value: string): void {
+  private _commitText(value: unknown): void {
     const node = this.startNode.nextSibling!;
     value = value == null ? '' : value;
     if (node === this.endNode.previousSibling &&
-        node.nodeType === Node.TEXT_NODE) {
+        node.nodeType === 3 /* Node.TEXT_NODE */) {
       // If we only have a single text node between the markers, we can just
       // set its value, rather than replacing it.
       // TODO(justinfagnani): Can we just check if this.value is primitive?
-      node.textContent = value;
+      (node as Text).data = value as string;
     } else {
       this._commitNode(document.createTextNode(
           typeof value === 'string' ? value : String(value)));
@@ -233,7 +260,8 @@ export class NodePart implements Part {
 
   private _commitTemplateResult(value: TemplateResult): void {
     const template = this.options.templateFactory(value);
-    if (this.value && this.value.template === template) {
+    if (this.value instanceof TemplateInstance &&
+        this.value.template === template) {
       this.value.update(value.values);
     } else {
       // Make sure we propagate the template processor from the TemplateResult
@@ -249,7 +277,7 @@ export class NodePart implements Part {
     }
   }
 
-  private _commitIterable(value: any): void {
+  private _commitIterable(value: Iterable<unknown>): void {
     // For an Iterable, we create a new InstancePart per item, then set its
     // value to the item. This is a little bit of overhead for every item in
     // an Iterable, but it lets us recurse easily and efficiently update Arrays
@@ -314,8 +342,8 @@ export class BooleanAttributePart implements Part {
   element: Element;
   name: string;
   strings: string[];
-  value: any = undefined;
-  _pendingValue: any = undefined;
+  value: unknown = undefined;
+  _pendingValue: unknown = undefined;
 
   constructor(element: Element, name: string, strings: string[]) {
     if (strings.length !== 2 || strings[0] !== '' || strings[1] !== '') {
@@ -327,7 +355,7 @@ export class BooleanAttributePart implements Part {
     this.strings = strings;
   }
 
-  setValue(value: any): void {
+  setValue(value: unknown): void {
     this._pendingValue = value;
   }
 
@@ -385,6 +413,7 @@ export class PropertyCommitter extends AttributeCommitter {
   commit(): void {
     if (this.dirty) {
       this.dirty = false;
+      // tslint:disable-next-line:no-any
       (this.element as any)[this.name] = this._getValue();
     }
   }
@@ -405,18 +434,23 @@ try {
       return false;
     }
   };
+  // tslint:disable-next-line:no-any
   window.addEventListener('test', options as any, options);
+  // tslint:disable-next-line:no-any
   window.removeEventListener('test', options as any, options);
 } catch (_e) {
 }
 
+
+type EventHandlerWithOptions =
+    EventListenerOrEventListenerObject&Partial<AddEventListenerOptions>;
 export class EventPart implements Part {
   element: Element;
   eventName: string;
   eventContext?: EventTarget;
-  value: any = undefined;
+  value: undefined|EventHandlerWithOptions = undefined;
   _options?: AddEventListenerOptions;
-  _pendingValue: any = undefined;
+  _pendingValue: undefined|EventHandlerWithOptions = undefined;
   _boundHandleEvent: (event: Event) => void;
 
   constructor(element: Element, eventName: string, eventContext?: EventTarget) {
@@ -426,14 +460,14 @@ export class EventPart implements Part {
     this._boundHandleEvent = (e) => this.handleEvent(e);
   }
 
-  setValue(value: any): void {
+  setValue(value: undefined|EventHandlerWithOptions): void {
     this._pendingValue = value;
   }
 
   commit() {
     while (isDirective(this._pendingValue)) {
       const directive = this._pendingValue;
-      this._pendingValue = noChange;
+      this._pendingValue = noChange as EventHandlerWithOptions;
       directive(this);
     }
     if (this._pendingValue === noChange) {
@@ -460,14 +494,14 @@ export class EventPart implements Part {
           this.eventName, this._boundHandleEvent, this._options);
     }
     this.value = newListener;
-    this._pendingValue = noChange;
+    this._pendingValue = noChange as EventHandlerWithOptions;
   }
 
   handleEvent(event: Event) {
     if (typeof this.value === 'function') {
       this.value.call(this.eventContext || this.element, event);
     } else {
-      this.value.handleEvent(event);
+      (this.value as EventListenerObject).handleEvent(event);
     }
   }
 }
@@ -475,7 +509,7 @@ export class EventPart implements Part {
 // We copy options because of the inconsistent behavior of browsers when reading
 // the third argument of add/removeEventListener. IE11 doesn't support options
 // at all. Chrome 41 only reads `capture` if the argument is an object.
-const getOptions = (o: any) => o &&
+const getOptions = (o: AddEventListenerOptions|undefined) => o &&
     (eventOptionsSupported ?
          {capture: o.capture, passive: o.passive, once: o.once} :
-         o.capture);
+         o.capture as AddEventListenerOptions);

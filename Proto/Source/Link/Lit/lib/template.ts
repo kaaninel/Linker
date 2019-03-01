@@ -12,6 +12,10 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
+/**
+ * @module lit-html
+ */
+
 import {TemplateResult} from './template-result.js';
 
 /**
@@ -51,30 +55,27 @@ export class Template {
       // null
       const walker = document.createTreeWalker(
           content,
-          133 /* NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_COMMENT |
-                 NodeFilter.SHOW_TEXT */
-          ,
-          null as any,
+          133 /* NodeFilter.SHOW_{ELEMENT|COMMENT|TEXT} */,
+          null,
           false);
-      // The actual previous node, accounting for removals: if a node is removed
-      // it will never be the previousNode.
-      let previousNode: Node|undefined;
-      // Used to set previousNode at the top of the loop.
-      let currentNode: Node|undefined;
+      // Keeps track of the last index associated with a part. We try to delete
+      // unnecessary nodes, but we never want to associate two different parts
+      // to the same index. They must have a constant node between.
+      let lastPartIndex = 0;
       while (walker.nextNode()) {
         index++;
-        previousNode = currentNode;
-        const node = currentNode = walker.currentNode as Element;
+        const node = walker.currentNode as Element | Comment | Text;
         if (node.nodeType === 1 /* Node.ELEMENT_NODE */) {
-          if (node.hasAttributes()) {
-            const attributes = node.attributes;
+          if ((node as Element).hasAttributes()) {
+            const attributes = (node as Element).attributes;
+            const {length} = attributes;
             // Per
             // https://developer.mozilla.org/en-US/docs/Web/API/NamedNodeMap,
             // attributes are not guaranteed to be returned in document order.
             // In particular, Edge/IE can return them out of order, so we cannot
             // assume a correspondance between part index and attribute index.
             let count = 0;
-            for (let i = 0; i < attributes.length; i++) {
+            for (let i = 0; i < length; i++) {
               if (attributes[i].value.indexOf(marker) >= 0) {
                 count++;
               }
@@ -92,77 +93,69 @@ export class Template {
               // the suffix.
               const attributeLookupName =
                   name.toLowerCase() + boundAttributeSuffix;
-              const attributeValue = node.getAttribute(attributeLookupName)!;
+              const attributeValue =
+                  (node as Element).getAttribute(attributeLookupName)!;
               const strings = attributeValue.split(markerRegex);
               this.parts.push({type: 'attribute', index, name, strings});
-              node.removeAttribute(attributeLookupName);
+              (node as Element).removeAttribute(attributeLookupName);
               partIndex += strings.length - 1;
             }
           }
-          if (node.tagName === 'TEMPLATE') {
+          if ((node as Element).tagName === 'TEMPLATE') {
             _prepareTemplate(node as HTMLTemplateElement);
           }
         } else if (node.nodeType === 3 /* Node.TEXT_NODE */) {
-          const nodeValue = node.nodeValue!;
-          if (nodeValue.indexOf(marker) < 0) {
-            continue;
+          const data = (node as Text).data!;
+          if (data.indexOf(marker) >= 0) {
+            const parent = node.parentNode!;
+            const strings = data.split(markerRegex);
+            const lastIndex = strings.length - 1;
+            // Generate a new text node for each literal section
+            // These nodes are also used as the markers for node parts
+            for (let i = 0; i < lastIndex; i++) {
+              parent.insertBefore(
+                  (strings[i] === '') ? createMarker() :
+                                        document.createTextNode(strings[i]),
+                  node);
+              this.parts.push({type: 'node', index: ++index});
+            }
+            // If there's no text, we must insert a comment to mark our place.
+            // Else, we can trust it will stick around after cloning.
+            if (strings[lastIndex] === '') {
+              parent.insertBefore(createMarker(), node);
+              nodesToRemove.push(node);
+            } else {
+              (node as Text).data = strings[lastIndex];
+            }
+            // We have a part for each match found
+            partIndex += lastIndex;
           }
-          const parent = node.parentNode!;
-          const strings = nodeValue.split(markerRegex);
-          const lastIndex = strings.length - 1;
-          // We have a part for each match found
-          partIndex += lastIndex;
-          // Generate a new text node for each literal section
-          // These nodes are also used as the markers for node parts
-          for (let i = 0; i < lastIndex; i++) {
-            parent.insertBefore(
-                (strings[i] === '') ? createMarker() :
-                                      document.createTextNode(strings[i]),
-                node);
-            this.parts.push({type: 'node', index: index++});
-          }
-          parent.insertBefore(
-              strings[lastIndex] === '' ?
-                  createMarker() :
-                  document.createTextNode(strings[lastIndex]),
-              node);
-          nodesToRemove.push(node);
         } else if (node.nodeType === 8 /* Node.COMMENT_NODE */) {
-          if (node.nodeValue === marker) {
+          if ((node as Comment).data === marker) {
             const parent = node.parentNode!;
             // Add a new marker node to be the startNode of the Part if any of
             // the following are true:
             //  * We don't have a previousSibling
-            //  * previousSibling is being removed (thus it's not the
-            //    `previousNode`)
-            //  * previousSibling is not a Text node
-            //
-            // TODO(justinfagnani): We should be able to use the previousNode
-            // here as the marker node and reduce the number of extra nodes we
-            // add to a template. See
-            // https://github.com/PolymerLabs/lit-html/issues/147
-            const previousSibling = node.previousSibling;
-            if (previousSibling === null || previousSibling !== previousNode ||
-                previousSibling.nodeType !== Node.TEXT_NODE) {
+            //  * The previousSibling is already the start of a previous part
+            if (node.previousSibling === null || index === lastPartIndex) {
+              index++;
               parent.insertBefore(createMarker(), node);
-            } else {
-              index--;
             }
-            this.parts.push({type: 'node', index: index++});
-            nodesToRemove.push(node);
-            // If we don't have a nextSibling add a marker node.
-            // We don't have to check if the next node is going to be removed,
-            // because that node will induce a new marker if so.
+            lastPartIndex = index;
+            this.parts.push({type: 'node', index});
+            // If we don't have a nextSibling, keep this node so we have an end.
+            // Else, we can remove it to save future costs.
             if (node.nextSibling === null) {
-              parent.insertBefore(createMarker(), node);
+              (node as Comment).data = '';
             } else {
+              nodesToRemove.push(node);
               index--;
             }
-            currentNode = previousNode;
             partIndex++;
           } else {
             let i = -1;
-            while ((i = node.nodeValue!.indexOf(marker, i + 1)) !== -1) {
+            while ((i = (node as Comment).data!.indexOf(marker, i + 1)) !==
+                   -1) {
               // Comment node has a binding marker inside, make an inactive part
               // The binding won't work, but subsequent bindings will
               // TODO (justinfagnani): consider whether it's even worth it to

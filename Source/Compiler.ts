@@ -3,6 +3,7 @@ import Transformers from "./Transformers/Index";
 import PostCSS from "./CSSCompiler";
 import { writeFileSync } from "fs";
 import { join } from "path";
+import CSS from "./CSSCompiler";
 
 const formatHost: ts.FormatDiagnosticsHost = {
   getCanonicalFileName: path => path,
@@ -22,6 +23,14 @@ function mergeTransformers(
       ? t1.afterDeclarations.concat(t2.afterDeclarations)
       : t2.afterDeclarations
   } as ts.CustomTransformers;
+}
+
+declare global {
+  namespace NodeJS {
+    interface Global {
+      CurrentProgram: ts.EmitAndSemanticDiagnosticsBuilderProgram;
+    } 
+  }
 }
 
 function watchMain() {
@@ -45,6 +54,7 @@ function watchMain() {
 
   host.afterProgramCreate = program => {
     const org = program.emit;
+    global.CurrentProgram = program;
     program.emit = function(
       targetSourceFile?: ts.SourceFile,
       writeFile?: ts.WriteFileCallback,
@@ -59,8 +69,10 @@ function watchMain() {
         emitOnlyDtsFiles,
         mergeTransformers(Transformers, customTransformers)
       );
-      Promise.all(Object.values(PostCSS.Styles)).then(x =>
-        writeFileSync(join(program.getCompilerOptions().outDir, "Style.css"), x.join(""))
+      CSS.Processor.process(Object.values(PostCSS.Styles).join("\n"), {
+        from: undefined
+      }).then(x =>
+        writeFileSync(join(program.getCompilerOptions().outDir, "Style.css"), x.css)
       );
       return R;
     };

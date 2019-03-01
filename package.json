@@ -29,6 +29,7 @@
     "@types/node": "^10.12.21",
     "postcss": "^7.0.14",
     "postcss-csso": "^3.0.0",
+    "postcss-extend": "^1.0.5",
     "postcss-nested": "^4.1.1",
     "typescript": "^3.2.4"
   },

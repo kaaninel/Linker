@@ -12,6 +12,9 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
+/**
+ * @module lit-html
+ */
 
 import {isCEPolyfill} from './dom.js';
 import {Part} from './part.js';
@@ -37,7 +40,7 @@ export class TemplateInstance {
     this.options = options;
   }
 
-  update(values: any[]) {
+  update(values: unknown[]) {
     let i = 0;
     for (const part of this._parts) {
       if (part !== undefined) {
@@ -71,7 +74,7 @@ export class TemplateInstance {
       const walker = document.createTreeWalker(
           fragment,
           133 /* NodeFilter.SHOW_{ELEMENT|COMMENT|TEXT} */,
-          null as any,
+          null,
           false);
       let node = walker.nextNode();
       // Loop through all the nodes and parts of a template
@@ -89,7 +92,7 @@ export class TemplateInstance {
         } else if (nodeIndex === part.index) {
           if (part.type === 'node') {
             const part = this.processor.handleTextExpression(this.options);
-            part.insertAfterNode(node);
+            part.insertAfterNode(node.previousSibling!);
             this._parts.push(part);
           } else {
             this._parts.push(...this.processor.handleAttributeExpressions(

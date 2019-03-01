@@ -116,7 +116,7 @@ const CustomElementDecorator = (node: SClass) => {
   return [node];
 };
 
-const ClassMembersVisitor = (Cls: SClass, context) => (
+const ClassMembersVisitor = (Cls: SClass, context: ts.TransformationContext) => (
   node: ts.MemberExpression
 ) => {
   if (PostCSS.IsPostCSS(node)) {
@@ -125,7 +125,7 @@ const ClassMembersVisitor = (Cls: SClass, context) => (
       node.parent.modifiers &&
       node.parent.modifiers.find(x => x.kind == ts.SyntaxKind.StaticKeyword);
     const Tag = IsStatic ? Cls.Tag : undefined;
-    return PostCSS.Process(node as ts.TaggedTemplateExpression, Tag);
+    return PostCSS.AddBlock(node as ts.TaggedTemplateExpression, Tag);
   }
   return ts.visitEachChild(node, ClassMembersVisitor(Cls, context), context);
 };
@@ -152,6 +152,9 @@ function CustomElementTransformer<T extends ts.Node>(): ts.TransformerFactory<
           ClassMembersVisitor(node, context),
           context
         );
+      }
+      else if(ts.isExpressionStatement(node) && PostCSS.IsPostCSS(node.expression)){
+        return PostCSS.AddBlock(node.expression as ts.TaggedTemplateExpression);
       }
       return node;
     };

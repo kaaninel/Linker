@@ -46,7 +46,7 @@ const _state = new WeakMap<Part, AsyncState>();
  *     const content = fetch('./content.txt').then(r => r.text());
  *     html`${until(content, html`<span>Loading...</span>`)}`
  */
-export const until = directive((...args: any[]) => (part: Part) => {
+export const until = directive((...args: unknown[]) => (part: Part) => {
   let state = _state.get(part)!;
   if (state === undefined) {
     state = {
@@ -55,25 +55,31 @@ export const until = directive((...args: any[]) => (part: Part) => {
     _state.set(part, state);
   }
   const previousValues = state.values;
-  let changedSinceLastRender = false;
   state.values = args;
 
   for (let i = 0; i < args.length; i++) {
+    // If we've rendered a higher-priority value already, stop.
+    if (state.lastRenderedIndex !== undefined && i > state.lastRenderedIndex) {
+      break;
+    }
+
     const value = args[i];
 
-    // If we've seen this value before, we've already handled it.
-    if (value === previousValues[i] && !changedSinceLastRender) {
-      continue;
-    }
-    changedSinceLastRender = true;
-
     // Render non-Promise values immediately
-    if (isPrimitive(value) || typeof value.then !== 'function') {
+    if (isPrimitive(value) ||
+        typeof (value as {then?: unknown}).then !== 'function') {
       part.setValue(value);
       state.lastRenderedIndex = i;
       // Since a lower-priority value will never overwrite a higher-priority
       // synchronous value, we can stop processsing now.
       break;
+    }
+
+    // If this is a Promise we've already handled, skip it.
+    if (state.lastRenderedIndex !== undefined &&
+        typeof (value as {then?: unknown}).then === 'function' &&
+        value === previousValues[i]) {
+      continue;
     }
 
     // We have a Promise that we haven't seen before, so priorities may have

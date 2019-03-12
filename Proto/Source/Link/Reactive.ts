@@ -23,7 +23,7 @@ export default class Reactive {
                   if (this.$Props[Key] !== Value) {
                     this.$Props[Key] = Value;
                     if (Key in this.$ReactiveCallbacks) {
-                      this.$ReactiveCallbacks[Key].forEach(x => x.call(this, Value, this));
+                      this.$ReactiveCallbacks[Key].forEach(x => x(Value, this));
                     }
                   }
                 }

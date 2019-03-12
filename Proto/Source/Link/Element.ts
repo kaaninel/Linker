@@ -13,9 +13,6 @@ const enum ElementStages {
 
 export const NextCycle = (Fn: Function) => setTimeout(Fn, 0);
 
-const GlobalStyle = document.createElement("style");
-document.head.appendChild(GlobalStyle);
-
 export default class LinkElement extends HTMLElement {
   static Tag: string;
   static Style: TemplateResult;
@@ -26,59 +23,65 @@ export default class LinkElement extends HTMLElement {
   Particles: Record<string, Particle> = {};
   Stage = ElementStages.Disconnected;
 
-  Getters: Record<string, Function[]> = {};
-  Setters: Record<string, Function[]> = {};
+  Store: Record<string, any> = {};
+  Getters: Record<string, Array<[string, Function]>>;
+  Setters: Record<string, Array<[string, Function]>>;
+  Events: Record<string, Array<[string, Function]>>;
+  Storage: Record<string, boolean>;
 
-  DefineProp(Key, Context) {
-    if (!(Key in this.Getters)) {
-      this.Getters[Key] = [];
-      this.Setters[Key] = [];
+  DefineProp(Key) {
+    if (!(Key in this.Store)) {
+      this.Store[Key] = undefined;
       Object.defineProperty(this, Key, {
         get(this: LinkElement) {
-          return this.Getters[Key].reduce(
-            (y, x) => x.call(Context, y),
-            undefined
-          );
+          const Getters = this.Getters && this.Getters[Key];
+          return Getters
+            ? Getters.reduce(
+                (y, x) => x[1].call(this.Particles[x[0]], y),
+                this.Store[Key]
+              )
+            : this.Store[Key];
         },
         set(this: LinkElement, Value: any) {
-          return this.Setters[Key].reduce(
-            (y, x) => x.call(Context, Value, y),
-            undefined
-          );
+          const Setters = this.Setters && this.Setters[Key];
+          const New = Setters
+            ? Setters.reduce(
+                (y, x) =>
+                  x[1].call(this.Particles[x[0]], y, Value, this.Store[Key]),
+                Value
+              )
+            : Value;
+          const Old = this.Store[Key];
+          if (Old !== New) {
+            this.Store[Key] = New;
+            const C = this.dispatchEvent(
+              new CustomEvent(`PropChange$${Key}`, {
+                detail: { Key, Old, New }
+              })
+            );
+            if (!C) this.Store[Key] = Old;
+          }
         }
       });
     }
   }
 
-  SetGetter(Context: any, Key: string, Fn: (BV?: any) => any) {
-    this.DefineProp(Key, Context);
-    this.Getters[Key].push(Fn);
-  }
-
-  SetSetter(Context: any, Key: string, Fn: (CV: any, BV?: any) => any) {
-    this.DefineProp(Key, Context);
-    this.Setters[Key].push(Fn);
-  }
-
-  SetGetters(Context: any, Key: string, Fns: Array<(BV?: any) => any>) {
-    this.DefineProp(Key, Context);
-    this.Getters[Key] = this.Getters[Key].concat(Fns);
-  }
-
-  SetSetters(
-    Context: any,
-    Key: string,
-    Fns: Array<(CV: any, BV?: any) => any>
-  ) {
-    this.DefineProp(Key, Context);
-    this.Setters[Key] = this.Setters[Key].concat(Fns);
-  }
   constructor() {
     super();
     const ParticlePrototypes = (this.constructor as typeof LinkElement)
       .Particles;
     for (const PP in ParticlePrototypes)
       this.Particles[PP] = new ParticlePrototypes[PP](this);
+    for (const G in this.Getters) this.DefineProp(G);
+    for (const G in this.Setters) this.DefineProp(G);
+    for (const G in this.Storage) this.DefineProp(G);
+    for (const G in this.Events) {
+      const Event = this.Events[G];
+      Event.forEach(x => {
+        this.addEventListener(G, x[1].bind(this.Particles[x[0]]));
+      });
+    }
+
     NextCycle(() => this.$Constr());
   }
 

@@ -1,6 +1,6 @@
 {
   "name": "@empatilab/linker",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "description": "Typescript Compiler for Link Library",
   "main": "index.js",
   "scripts": {

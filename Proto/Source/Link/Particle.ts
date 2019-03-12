@@ -6,23 +6,35 @@ type ParticleModifier<T extends Particle = Particle> = (
 ) => any;
 
 export default class Particle {
-  static Getters: Record<string, ParticleModifier[]>;
-  static Setters: Record<string, ParticleModifier[]>;
-
-  static Register(Target: any) {
+  static Getter(Target: any, Key: string, Fn: ParticleModifier) {
     if (!Target.constructor.Particles[this.name])
       Target.constructor.Particles[this.name] = this;
+    if (!Target.hasOwnProperty("Getters"))
+      Target.Getters = { ...Target.Getters };
+    if (!Target.Getters[Key]) Target.Getters[Key] = [];
+    Target.Getters[Key].push([this.name, Fn]);
   }
-
-  static Getter(Key: string, Fn: ParticleModifier) {
-    if (!this.hasOwnProperty("Getters")) this.Getters = {};
-    if (!this.Getters[Key]) this.Getters[Key] = [];
-    this.Getters[Key].push(Fn);
+  static Setter(Target: any, Key: string, Fn: ParticleModifier) {
+    if (!Target.constructor.Particles[this.name])
+      Target.constructor.Particles[this.name] = this;
+    if (!Target.hasOwnProperty("Setters"))
+      Target.Setters = { ...Target.Setters };
+    if (!Target.Setters[Key]) Target.Setters[Key] = [];
+    Target.Setters[Key].push([this.name, Fn]);
   }
-  static Setter(Key: string, Fn: ParticleModifier) {
-    if (!this.hasOwnProperty("Setters")) this.Setters = {};
-    if (!this.Setters[Key]) this.Setters[Key] = [];
-    this.Setters[Key].push(Fn);
+  static On(Target: any, Key: string, Fn: ParticleModifier) {
+    if (!Target.constructor.Particles[this.name])
+      Target.constructor.Particles[this.name] = this;
+    if (!Target.hasOwnProperty("Events")) Target.Events = { ...Target.Events };
+    if (!Target.Events[Key]) Target.Events[Key] = [];
+    Target.Events[Key].push([this.name, Fn]);
+  }
+  static Storage(Target: any, Key: string) {
+    if (!Target.constructor.Particles[this.name])
+      Target.constructor.Particles[this.name] = this;
+    if (!Target.hasOwnProperty("Storage"))
+      Target.Storage = { ...Target.Storage };
+    if (!Target.Storage[Key]) Target.Storage[Key] = true;
   }
 
   static Constr?(El: LinkElement): void;
@@ -31,11 +43,5 @@ export default class Particle {
   static Disconnected?(El: LinkElement): void;
   static Rendered?(El: LinkElement): void;
 
-  constructor(public Root: LinkElement) {
-    const C = this.constructor as typeof Particle;
-    for (const Key in C.Getters)
-      this.Root.SetGetters(this, Key, C.Getters[Key]);
-    for (const Key in C.Setters)
-      this.Root.SetSetters(this, Key, C.Setters[Key]);
-  }
+  constructor(public Root: LinkElement) {}
 }

@@ -7,35 +7,34 @@ import {
 } from "Link/Lit/lit-html";
 
 export class Block {
-
   protected Parts: Part[] = [];
-  constructor(private _Value?: any){}
+  constructor(private $Value?: any) {}
 
-  get Template(){
-    return this._Value;
+  get Template() {
+    return this.$Value;
   }
 
   set Template(Val: any) {
-    if(this._Value === Val) return;
-    this._Value = Val;
+    if (this.$Value === Val) return;
+    this.$Value = Val;
     this.Parts.forEach(Part => {
-      Part.setValue(this._Value);
+      Part.setValue(this.$Value);
       Part.commit();
     });
   }
 
-  private $Assign(Part: Part){
+  private $Assign(Part: Part) {
     this.Parts.push(Part);
-    Part.setValue(this._Value);
+    Part.setValue(this.$Value);
     Part.commit();
   }
 }
 
 //@ts-ignore
 class LinkNodePart extends NodePart {
-  commit(){
+  commit() {
     const V = this._pendingValue;
-    if(V instanceof Block) {
+    if (V instanceof Block) {
       //@ts-ignore
       V.$Assign(this);
       this._pendingValue = noChange;
@@ -50,7 +49,7 @@ class LinkNodePart extends NodePart {
     }
     const itemParts = this.value as LinkNodePart[];
     let partIndex = 0;
-    let itemPart: LinkNodePart|undefined;
+    let itemPart: LinkNodePart | undefined;
 
     for (const item of value) {
       itemPart = itemParts[partIndex];
@@ -77,13 +76,12 @@ class LinkNodePart extends NodePart {
 
 class LinkProcessor extends DefaultTemplateProcessor {
   //@ts-ignore
-  handleTextExpression(Options){
+  handleTextExpression(Options) {
     return new LinkNodePart(Options);
   }
 }
 
 const DefaultLinkProcessor = new LinkProcessor();
-
 
 export class LinkTemplate extends TemplateResult {
   constructor(strings: TemplateStringsArray, values: any[]) {
@@ -118,10 +116,9 @@ export class LinkTemplate extends TemplateResult {
   }
 }
 
-
 export const html = (strings: TemplateStringsArray, ...values: any[]) =>
   new LinkTemplate(strings, values);
 
 export const css = (strings: TemplateStringsArray, ...values: any[]) =>
-//@ts-ignore
+  //@ts-ignore
   new TemplateResult(strings, values, "html", DefaultLinkProcessor);

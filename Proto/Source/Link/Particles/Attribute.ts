@@ -1,46 +1,31 @@
 import Particle from "Link/Particle";
 
 export default class Attribute extends Particle {
-
-  Property = {};
-
-  static Prop(Target: any, Key: any){
-    Attribute.Register(Target);
-    Attribute.Getter(Key, function(this: Attribute) {
-      return this.Property[Key];
-    });
-    Attribute.Setter(Key, function(this: Attribute, Value){
-      if(!this.Property[Key] || Value !== this.Property[Key]) {
-        this.Property[Key] = Value;
-        this.Root.ReRender();
-      }
+  static Prop(Target: any, Key: any) {
+    Attribute.Storage(Target, Key);
+    Attribute.On(Target, `PropChange$${Key}`, function(this: Attribute) {
+      this.Root.ReRender();
     });
   }
 
-  static Bool(Target: any, Key: any){
-    Attribute.Register(Target);
-    Attribute.Getter(Key, function(this: Attribute) {
-      return this.Property[Key];
-    });
-    Attribute.Setter(Key, function(this: Attribute, Value){
-      if(!this.Property[Key] || Value !== this.Property[Key]) {
-        this.Property[Key] = Value;
-        if(Value) this.Root.setAttribute(Key, "");
-        else this.Root.removeAttribute(Key);
-      }
+  static Bool(Target: any, Key: any) {
+    Attribute.Storage(Target, Key);
+    Attribute.On(Target, `PropChange$${Key}`, function(
+      this: Attribute,
+      { detail: { New } }
+    ) {
+      if (New) this.Root.setAttribute(Key, "");
+      else this.Root.removeAttribute(Key);
     });
   }
 
-  static DOM(Target: any, Key: any){
-    Attribute.Register(Target);
-    Attribute.Getter(Key, function(this: Attribute) {
-      return this.Property[Key];
-    });
-    Attribute.Setter(Key, function(this: Attribute, Value){
-      if(!this.Property[Key] || Value !== this.Property[Key]) {
-        this.Property[Key] = Value;
-        this.Root.setAttribute(Key, Value);
-      }
+  static DOM(Target: any, Key: any) {
+    Attribute.Storage(Target, Key);
+    Attribute.On(Target, `PropChange$${Key}`, function(
+      this: Attribute,
+      { detail: { New } }
+    ) {
+      this.Root.setAttribute(Key, New);
     });
   }
 }

@@ -9,10 +9,7 @@ const LineThrough = (Text: string) =>
 
 function StyleVar(Target: any, Key: any, Unit?: string) {
   Style.Storage(Target, Key);
-  Style.On(Target, `PropChange$${Key}`, function(
-    this: Style,
-    { detail: { New } }
-  ) {
+  Style.On(Target, Key, function(this: Style, { detail: { New } }) {
     this.Root.style.setProperty(
       `--${LineThrough(Key)}`,
       Unit ? New + Unit : New

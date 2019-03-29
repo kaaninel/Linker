@@ -112,7 +112,11 @@ export class LinkTemplate extends TemplateResult {
         SelfClosing[i] = `${x}></${TagMatch[0]}>`;
       }
     }
-    return SelfClosing.join("");
+    return SelfClosing.join("").replace(
+      /\.(\w+)=/g,
+      (f, x) =>
+        `.${x.replace(/([A-Z][a-z]+)/g, (f, x) => `-${x.toLowerCase()}`)}=`
+    );
   }
 }
 

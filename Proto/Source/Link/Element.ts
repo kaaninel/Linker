@@ -1,5 +1,6 @@
 import { TemplateResult, render } from "Link/Lit/lit-html";
 import Particle from "./Particle";
+import { EventProxy } from "./EventRoot";
 
 declare global {
   const CustomElement: Record<string, (Ctor: Function) => any>;
@@ -28,6 +29,7 @@ export default class LinkElement extends HTMLElement {
   Setters: Record<string, Array<[string, Function]>>;
   Events: Record<string, Array<[string, Function]>>;
   Storage: Record<string, boolean>;
+  $ = EventProxy(this);
 
   DefineProp(Key) {
     if (!(Key in this.Store)) {
@@ -55,7 +57,7 @@ export default class LinkElement extends HTMLElement {
           if (Old !== New) {
             this.Store[Key] = New;
             const C = this.dispatchEvent(
-              new CustomEvent(`PropChange$${Key}`, {
+              new CustomEvent(Key, {
                 detail: { Key, Old, New }
               })
             );
@@ -81,8 +83,21 @@ export default class LinkElement extends HTMLElement {
         this.addEventListener(G, x[1].bind(this.Particles[x[0]]));
       });
     }
-
+    this.ProcessAttributes();
     NextCycle(() => this.$Constr());
+  }
+
+  ProcessAttributes() {
+    Array.from(this.attributes)
+      .filter(x => x.name.startsWith("."))
+      .forEach(x => {
+        this[
+          x.name
+            .substr(1)
+            .replace(/-[a-z]/g, (f, w) => f.substr(1).toUpperCase())
+        ] = x.value;
+        this.attributes.removeNamedItem(x.name);
+      });
   }
 
   Render(Template: any) {

@@ -12,8 +12,8 @@ export default class AsyncLock {
   ) {
     const OptionsD = {
       Override: false,
-      Timeout: -1,
       Throw: true,
+      Timeout: -1,
       Value: `${Key} Timeout`,
       ...Options
     };
@@ -33,7 +33,7 @@ export default class AsyncLock {
     Key: Object,
     Value: any,
     Throw: boolean = false,
-    Timeout?: NodeJS.Timeout
+    Timeout?: number
   ) {
     const [Res, Rej] = this.Store.get(Key);
     if (Throw) Rej(Value);
